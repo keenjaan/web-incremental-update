@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<link href=/static/css/app.0049fa8188e9eb45444177f2d476699d.css />
+	<script src="/diff.js"></script>
+	<script>
+		var version = '0.0.2';
+		var resource = [
+			{
+				name: 'js/manifest',
+				hash: '76b869a6e3933e5e7894'
+			},
+			{
+				name: 'js/vendor',
+				hash: 'b0914100410a0072ee03'
+			},
+			{
+				name: 'js/app',
+				hash: '21249c59a5d92d8db949'
+			},
+			{
+				name: 'js/0',
+				hash: '1d1a3dc420e87448f689'
+			},
+			{
+				name: 'js/1',
+				hash: 'ea1250dd99a1bed4179e'
+			},
+			{
+				name: 'js/2',
+				hash: '92286453f9a92fecb60c'
+			}
+		]
+	</script>
+</head>
+<body>
+	<div id="app"></div>
+	<script>
+		init();
+		function ajax(name, oldHash, hash, callback) {
+			var url = name;
+			url = url + '?hash=' + (hash || '') + '&oldHash=' + (oldHash || '');
+			var xhr = new XMLHttpRequest();
+			xhr.onreadystatechange = function () {
+				if (xhr.readyState === 4) {
+					if (xhr.status === 200) {
+						if (callback) {
+							callback(hash, name, xhr.responseText)
+						}
+					} else {
+						throw new Error('服务器挂了')
+					}
+				}
+			}
+			xhr.open('GET', url, true);
+    		xhr.send();
+		}
+		// 匹配版本号
+		function isMatchStorage(name, hash) {
+			var store = getStorageOb(name);
+			if (store) {
+				if (store.hash === hash) {
+					return {status: 'cache', hash}
+				} else {
+					return {status: 'merge', hash: store.hash}
+				}
+			}
+			return {status: 'no-cache', hash: null}
+		}
+		// 初始化
+		function init() {
+			for (var i = 0; i < resource.length; i++) {
+				var fileName = resource[i].name;
+				var hash = resource[i].hash;
+				var version = window.localStorage.getItem('version');
+				if (version) {
+					var ob = isMatchStorage(fileName, hash);
+					switch (ob.status) {
+						case 'cache':
+							loadFile(ob.hash, fileName);
+							break;
+						case 'merge':
+							fetchFile(fileName, ob.hash, hash);
+							break;
+						default:
+							fetchFile( fileName, ob.hash, hash)
+					}
+				} else {
+					// 调用接口拉取文件
+					fetchFile( fileName, null, hash)
+				}
+			}
+		}
+		// 加载本地缓存
+		function loadFile(hash, name) {
+			var type = fileNameToType(name);
+			var fileStr = getStorageOb(name);
+			// 文件存在
+			if (fileStr) {
+				if (type === 'css') {
+					// 执行css
+					loadCss(fileStr.str)
+				} else if (type === 'js') {
+					//执行js
+					try {
+						eval(fileStr.str)
+					} catch(err) {
+						fetchFile(name, null, hash)
+					}
+					
+				}
+			} else {
+				// 文件不存在
+				fetchFile(name, null, hash)
+			}
+		}
+
+		// 加载css文件
+		function loadCss(str) {
+			var style = document.createElement('style');
+			var head = document.querySelector('head');
+			style.innerHTML = str;
+			head.appendChild(style);
+		}
+		// 调用接口
+		function fetchFile(name, oldHash, hash) {
+			ajax(name, oldHash, hash, cb);
+		}
+		// 接口回调函数
+		function cb(hash, name, data) {
+			// 正常返回
+			var dataOb = JSON.parse(data)
+			if (dataOb.isMerge) {
+				// 合并代码
+				mergeVersion(name, hash, dataOb.data)
+			} else {
+				saveExe(name, hash, dataOb.data)
+			}
+		}
+
+		function mergeVersion(name, hash, data) {
+			// 合并代码
+			var versionOb = getStorageOb(name);
+			var oldVersion = versionOb ? versionOb.str : '';
+			var newVersion = JsDiff.applyPatch(oldVersion, data)
+			saveExe(name, hash, newVersion)
+		}
+
+		// 新代码存到本地并执行相关代码
+		function saveExe(name, hash, data) {
+			// 存新版本
+			var obj = {
+				hash,
+				str: data
+			}
+			window.localStorage.setItem(name, JSON.stringify(obj))
+			window.localStorage.setItem('version', version)
+			// 判断文件类型
+			var type = fileNameToType(name);
+			if (type === 'css') {
+				// 执行css
+				loadCss(data)
+			} else if (type === 'js') {
+				//执行js
+				eval(data)
+			}
+		}
+		// 从localStorage中获取json对象并解析，如果取不到则返回null
+		function getStorageOb(key) {
+			var value = window.localStorage.getItem(key);
+			if (value) {
+				try {
+					var data = JSON.parse(value);
+					return data
+				} catch(err) {
+					return null
+				}
+			}
+			return null
+		}
+		// 根据文件名判断文件类型
+		function fileNameToType(name) {
+			// 这里只有js，css两种类型
+			var reg = /^js.*/ig;
+			if (reg.test(name)) {
+				return 'js'
+			} else {
+				return 'css'
+			}
+		}
+
+	</script>
+</body>
+</html>

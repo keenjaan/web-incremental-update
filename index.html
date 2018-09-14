@@ -4,21 +4,27 @@
 	<meta charset="UTF-8">
 	<title>Document</title>
 	<link href=./static/css/app.e040231b4c18b66b6bd7fef0d1036fd5.css />
-	<script src="/diff.js"></script>
+	<!-- <script src="/diff.js"></script> -->
 	<script>
 		var version = '0.0.2';
 		var resource = [
 			{
 				name: 'js/manifest',
-				hash: '09870d820b825613b221'
+				hash: '09870d820b825613b221',
+				isDownload: false,
+				isExe: false
 			},
 			{
 				name: 'js/vendor',
-				hash: '81d6d64af49feb826eaf'
+				hash: '81d6d64af49feb826eaf',
+				isDownload: false,
+				isExe: false
 			},
 			{
 				name: 'js/app',
-				hash: 'fbe675461aa62374f885'
+				hash: 'fbe675461aa62374f885',
+				isDownload: false,
+				isExe: false
 			}
 		]
 	</script>
@@ -63,6 +69,7 @@
 				var fileName = resource[i].name;
 				var hash = resource[i].hash;
 				var version = window.localStorage.getItem('version');
+				// debugger;
 				if (version) {
 					var ob = isMatchStorage(fileName, hash);
 					switch (ob.status) {
@@ -85,6 +92,7 @@
 		function loadFile(hash, name) {
 			var type = fileNameToType(name);
 			var fileStr = getStorageOb(name);
+			modifyStatus(name, fileStr.str)
 			// 文件存在
 			if (fileStr) {
 				if (type === 'css') {
@@ -93,7 +101,8 @@
 				} else if (type === 'js') {
 					//执行js
 					try {
-						eval(fileStr.str)
+						judgeExe(name)
+						// eval(fileStr.str)
 					} catch(err) {
 						fetchFile(name, null, hash)
 					}
@@ -138,6 +147,7 @@
 
 		// 新代码存到本地并执行相关代码
 		function saveExe(name, hash, data) {
+			modifyStatus(name, data)
 			// 存新版本
 			var obj = {
 				hash,
@@ -152,7 +162,68 @@
 				loadCss(data)
 			} else if (type === 'js') {
 				//执行js
-				eval(data)
+				judgeExe(name)
+				// console.log(data, 'data')
+				// eval(data)
+			}
+		}
+		// 判断是否能执行js
+		
+		 function judgeExe (name) {
+			var index;
+			for (var i = 0; i < resource.length; i++) {
+				if (resource[i].name === name) {
+					index = i;
+					break;
+				}
+			}
+			// 遍历当前js文件之前的文件，如果之前的js文件有没有成功返回的，就不能执行当前文件
+			var canExe = true;
+			for (var j = 0; j <= index; j++) {
+				if (!resource[j].isDownload) {
+					canExe = false;
+					break;
+				}
+			}
+			// 如果有可以执行
+			if (canExe) {
+				console.log(index, 'exe index')
+				exeEval(resource[index].src)
+				// window.eval(resource[index].src);
+				for (var k = index + 1; k < resource.length; k++) {
+					if (resource[k].isDownload) {
+						console.log(k, 'exe for key')
+						exeEval(resource[k].src)
+						// window.eval(resource[k].src)
+					} else {
+						break;
+					}
+				}
+			}
+		}
+
+		// 执行eval函数
+		function exeEval(str) {
+			window.eval(str)
+		}
+
+		// 从资源配置数组里匹配当前文件，改变配置状态
+		function modifyStatus(name, data) {
+			for (var i = 0; i < resource.length; i++) {
+				if (resource[i].name === name) {
+					resource[i].src = data;
+					resource[i].isDownload = true;
+					break;
+				}
+			}
+		}
+		// 从资源配置数组里读取文件，改变执行状态
+		function modifyExt(name) {
+			for (var i = 0; i < resource.length; i++) {
+				if (resource[i].name === name) {
+					resource[i].isExe = true;
+					break;
+				}
 			}
 		}
 		// 从localStorage中获取json对象并解析，如果取不到则返回null

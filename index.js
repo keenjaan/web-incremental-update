@@ -44,12 +44,12 @@ app.get('/js/*', function (req, res) {
 	const hash = req.query.hash;
 	dealFile(res, fileName, oldHash, hash, 'js')
 })
-// app.get('/css/*', function (req, res) {
-// 	const fileName = req.params[0];
-// 	const oldHash = req.query.oldHash;
-// 	const hash = req.query.hash;
-// 	dealFile(res, fileName, oldHash, hash, 'css')
-// })
+app.get('/css/*', function (req, res) {
+	const fileName = req.params[0];
+	const oldHash = req.query.oldHash;
+	const hash = req.query.hash;
+	dealFile(res, fileName, oldHash, hash, 'css')
+})
 app.use(express.static('static'));
 
 const server = app.listen(1234, function () {

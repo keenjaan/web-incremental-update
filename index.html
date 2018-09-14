@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Document</title>
-	<link href=./static/css/app.e040231b4c18b66b6bd7fef0d1036fd5.css />
+	<!-- <link rel="stylesheet" href="/css/app.e040231b4c18b66b6bd7fef0d1036fd5.css" /> -->
 	<!-- <script src="/diff.js"></script> -->
 	<script>
 		var version = '0.0.2';
@@ -25,6 +25,10 @@
 				hash: 'fbe675461aa62374f885',
 				isDownload: false,
 				isExe: false
+			},
+			{
+				name: 'css/app',
+				hash: 'e040231b4c18b66b6bd7fef0d1036fd5'
 			}
 		]
 	</script>
@@ -117,6 +121,8 @@
 		// 加载css文件
 		function loadCss(str) {
 			var style = document.createElement('style');
+			style.rel = "stylesheet"
+			// rel="stylesheet"
 			var head = document.querySelector('head');
 			style.innerHTML = str;
 			head.appendChild(style);

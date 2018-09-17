@@ -6,8 +6,14 @@
 	<!-- <link rel="stylesheet" href="/css/app.e040231b4c18b66b6bd7fef0d1036fd5.css" /> -->
 	<!-- <script src="/diff.js"></script> -->
 	<script>
-		var version = '0.0.2';
-		var resource = [
+		var VERSION = '0.0.2';
+		var cssList = [
+			{
+				name: 'css/app',
+				hash: 'e040231b4c18b66b6bd7fef0d1036fd5'
+			}
+		];
+		var jsList = [
 			{
 				name: 'js/manifest',
 				hash: '09870d820b825613b221',
@@ -25,10 +31,6 @@
 				hash: 'fbe675461aa62374f885',
 				isDownload: false,
 				isExe: false
-			},
-			{
-				name: 'css/app',
-				hash: 'e040231b4c18b66b6bd7fef0d1036fd5'
 			}
 		]
 	</script>
@@ -69,22 +71,33 @@
 		}
 		// 初始化
 		function init() {
-			for (var i = 0; i < resource.length; i++) {
-				var fileName = resource[i].name;
-				var hash = resource[i].hash;
-				var version = window.localStorage.getItem('version');
+			// 遍历css资源
+			mapResourceList(cssList);
+			// 遍历js资源
+			mapResourceList(jsList);
+		}
+		// 遍历css和js数组，来加载或请求相应文件
+		function mapResourceList(list) {
+			for (var i = 0; i < list.length; i++) {
+				var fileName = list[i].name;
+				var hash = list[i].hash;
+				var version = window.localStorage.getItem('VERSION');
 				// debugger;
-				if (version) {
-					var ob = isMatchStorage(fileName, hash);
-					switch (ob.status) {
-						case 'cache':
-							loadFile(ob.hash, fileName);
-							break;
-						case 'merge':
-							fetchFile(fileName, ob.hash, hash);
-							break;
-						default:
-							fetchFile( fileName, ob.hash, hash)
+				var ob = isMatchStorage(fileName, hash);
+				if (VERSION) {
+					if (version === VERSION) {
+						loadFile(ob.hash, fileName);
+					} else {
+						switch (ob.status) {
+							case 'cache':
+								loadFile(ob.hash, fileName);
+								break;
+							case 'merge':
+								fetchFile(fileName, ob.hash, hash);
+								break;
+							default:
+								fetchFile( fileName, ob.hash, hash)
+						}
 					}
 				} else {
 					// 调用接口拉取文件
@@ -92,6 +105,7 @@
 				}
 			}
 		}
+
 		// 加载本地缓存
 		function loadFile(hash, name) {
 			var type = fileNameToType(name);
@@ -160,7 +174,7 @@
 				str: data
 			}
 			window.localStorage.setItem(name, JSON.stringify(obj))
-			window.localStorage.setItem('version', version)
+			window.localStorage.setItem('VERSION', VERSION)
 			// 判断文件类型
 			var type = fileNameToType(name);
 			if (type === 'css') {
@@ -175,10 +189,10 @@
 		}
 		// 判断是否能执行js
 		
-		 function judgeExe (name) {
+		function judgeExe (name) {
 			var index;
-			for (var i = 0; i < resource.length; i++) {
-				if (resource[i].name === name) {
+			for (var i = 0; i < jsList.length; i++) {
+				if (jsList[i].name === name) {
 					index = i;
 					break;
 				}
@@ -186,7 +200,7 @@
 			// 遍历当前js文件之前的文件，如果之前的js文件有没有成功返回的，就不能执行当前文件
 			var canExe = true;
 			for (var j = 0; j <= index; j++) {
-				if (!resource[j].isDownload) {
+				if (!jsList[j].isDownload) {
 					canExe = false;
 					break;
 				}
@@ -194,40 +208,55 @@
 			// 如果有可以执行
 			if (canExe) {
 				console.log(index, 'exe index')
-				exeEval(resource[index].src)
-				// window.eval(resource[index].src);
-				for (var k = index + 1; k < resource.length; k++) {
-					if (resource[k].isDownload) {
+				exeEval(jsList[index].src)
+				// window.eval(jsList[index].src);
+				for (var k = index + 1; k < jsList.length; k++) {
+					if (jsList[k].isDownload) {
 						console.log(k, 'exe for key')
-						exeEval(resource[k].src)
-						// window.eval(resource[k].src)
+						exeEval(jsList[k].src)
+						// window.eval(jsList[k].src)
 					} else {
 						break;
 					}
+				}
+			}
+			// 清除js字符串内存
+			function removeJsStr() {
+				for (var i = 0; i < jsList.length; i++) {
+					jsList[i].src = null;
+				}
+				for (var i = 0; i < cssList.length; i++) {
+					cssList[i].src = null;
 				}
 			}
 		}
 
 		// 执行eval函数
 		function exeEval(str) {
-			window.eval(str)
+			// 兼容ie8，也可以忽略，因为ie8对localStorage兼容性不是很好。
+			if(window.execScript){
+				window.execScript(str);
+			}else {
+				//非IE浏览器
+				window.eval(str);
+			}
 		}
 
 		// 从资源配置数组里匹配当前文件，改变配置状态
 		function modifyStatus(name, data) {
-			for (var i = 0; i < resource.length; i++) {
-				if (resource[i].name === name) {
-					resource[i].src = data;
-					resource[i].isDownload = true;
+			for (var i = 0; i < jsList.length; i++) {
+				if (jsList[i].name === name) {
+					jsList[i].src = data;
+					jsList[i].isDownload = true;
 					break;
 				}
 			}
 		}
 		// 从资源配置数组里读取文件，改变执行状态
 		function modifyExt(name) {
-			for (var i = 0; i < resource.length; i++) {
-				if (resource[i].name === name) {
-					resource[i].isExe = true;
+			for (var i = 0; i < jsList.length; i++) {
+				if (jsList[i].name === name) {
+					jsList[i].isExe = true;
 					break;
 				}
 			}

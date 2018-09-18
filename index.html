@@ -3,288 +3,313 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Document</title>
-	<!-- <link rel="stylesheet" href="/css/app.e040231b4c18b66b6bd7fef0d1036fd5.css" /> -->
-	<!-- <script src="/diff.js"></script> -->
+	<script src="/diff.js"></script>
 	<script>
-		var VERSION = '0.0.2';
-		var cssList = [
-			{
-				name: 'css/app',
-				hash: 'e040231b4c18b66b6bd7fef0d1036fd5'
-			}
-		];
-		var jsList = [
-			{
-				name: 'js/manifest',
-				hash: '09870d820b825613b221',
-				isDownload: false,
-				isExe: false
-			},
-			{
-				name: 'js/vendor',
-				hash: '81d6d64af49feb826eaf',
-				isDownload: false,
-				isExe: false
-			},
-			{
-				name: 'js/app',
-				hash: 'fbe675461aa62374f885',
-				isDownload: false,
-				isExe: false
-			}
-		]
+		var config = {
+			VERSION: '0.0.2',
+			cssList: [
+				{
+					name: 'css/app',
+					hash: 'e040231b4c18b66b6bd7fef0d1036fd5'
+				}
+			],
+			jsList: [
+				{
+					name: 'js/manifest',
+					hash: '09870d820b825613b221',
+					isDownload: false,
+					isExe: false
+				},
+				{
+					name: 'js/vendor',
+					hash: '81d6d64af49feb826eaf',
+					isDownload: false,
+					isExe: false
+				},
+				{
+					name: 'js/app',
+					hash: 'fbe675461aa62374f885',
+					isDownload: false,
+					isExe: false
+				}
+			]
+		}
 	</script>
 </head>
 <body>
 	<div id="app"></div>
 	<script>
-		init();
-		function ajax(name, oldHash, hash, callback) {
-			var url = name;
-			url = url + '?hash=' + (hash || '') + '&oldHash=' + (oldHash || '');
-			var xhr = new XMLHttpRequest();
-			xhr.onreadystatechange = function () {
-				if (xhr.readyState === 4) {
-					if (xhr.status === 200) {
-						if (callback) {
-							callback(hash, name, xhr.responseText)
-						}
-					} else {
-						throw new Error('服务器挂了')
-					}
-				}
-			}
-			xhr.open('GET', url, true);
-    		xhr.send();
-		}
-		// 匹配版本号
-		function isMatchStorage(name, hash) {
-			var store = getStorageOb(name);
-			if (store) {
-				if (store.hash === hash) {
-					return {status: 'cache', hash}
-				} else {
-					return {status: 'merge', hash: store.hash}
-				}
-			}
-			return {status: 'no-cache', hash: null}
-		}
-		// 初始化
-		function init() {
-			// 遍历css资源
-			mapResourceList(cssList);
-			// 遍历js资源
-			mapResourceList(jsList);
-		}
-		// 遍历css和js数组，来加载或请求相应文件
-		function mapResourceList(list) {
-			for (var i = 0; i < list.length; i++) {
-				var fileName = list[i].name;
-				var hash = list[i].hash;
-				var version = window.localStorage.getItem('VERSION');
-				// debugger;
-				var ob = isMatchStorage(fileName, hash);
-				if (VERSION) {
-					if (version === VERSION) {
-						loadFile(ob.hash, fileName);
-					} else {
-						switch (ob.status) {
-							case 'cache':
-								loadFile(ob.hash, fileName);
-								break;
-							case 'merge':
-								fetchFile(fileName, ob.hash, hash);
-								break;
-							default:
-								fetchFile( fileName, ob.hash, hash)
+		(function () {
+			// 读取环境，如果是app webview环境,需要每次访问服务器获取html文件，同时服务器根据客户端的cookie，
+			// 写入needUpdate字段，即本地文件是否需要强制更新。同时将版本号写入cookie，方便下次访问时判断是否需要强制更新
+			// 服务端保存一段时间的版本或一定数量的版本，当根据服务端配置文件对所有版本打个标签，用于标记是否需要强制更新。
+			// 服务器接收到用户的请求，读取cookie中版本，根据版本匹配配置文件，写入是否需要强制更新。
+			// 或者去除cookie采用ajax请求实时来判断
+			// if (jsBrige) {
+			// 	// 获取网络条件
+			// 	jsBrige.getNetWork(function (state) {
+			// 		if (state === '弱网') {
+			// 			// 读取当前版本是否可以不用更新
+			// 			if (needUpdate) {
+			// 				// 根据配置文件更新
+			// 				init();
+			// 			} else {
+			// 				// 直接遍历本地文件加载
+			// 			}
+			// 		} else {
+			// 			init();
+			// 		}
+			// 	})
+			// } else {
+			// 	init();
+			// }
+			init();
+			function ajax(name, oldHash, hash, callback) {
+				var url = name;
+				url = url + '?hash=' + (hash || '') + '&oldHash=' + (oldHash || '');
+				var xhr = new XMLHttpRequest();
+				xhr.onreadystatechange = function () {
+					if (xhr.readyState === 4) {
+						if (xhr.status === 200) {
+							if (callback) {
+								callback(hash, name, xhr.responseText)
+							}
+						} else {
+							throw new Error('服务器挂了')
 						}
 					}
-				} else {
-					// 调用接口拉取文件
-					fetchFile( fileName, null, hash)
 				}
+				xhr.open('GET', url, true);
+				xhr.send();
 			}
-		}
-
-		// 加载本地缓存
-		function loadFile(hash, name) {
-			var type = fileNameToType(name);
-			var fileStr = getStorageOb(name);
-			modifyStatus(name, fileStr.str)
-			// 文件存在
-			if (fileStr) {
-				if (type === 'css') {
-					// 执行css
-					loadCss(fileStr.str)
-				} else if (type === 'js') {
-					//执行js
-					try {
-						judgeExe(name)
-						// eval(fileStr.str)
-					} catch(err) {
-						fetchFile(name, null, hash)
-					}
-					
-				}
-			} else {
-				// 文件不存在
-				fetchFile(name, null, hash)
-			}
-		}
-
-		// 加载css文件
-		function loadCss(str) {
-			var style = document.createElement('style');
-			style.rel = "stylesheet"
-			// rel="stylesheet"
-			var head = document.querySelector('head');
-			style.innerHTML = str;
-			head.appendChild(style);
-		}
-		// 调用接口
-		function fetchFile(name, oldHash, hash) {
-			ajax(name, oldHash, hash, cb);
-		}
-		// 接口回调函数
-		function cb(hash, name, data) {
-			// 正常返回
-			var dataOb = JSON.parse(data)
-			if (dataOb.isMerge) {
-				// 合并代码
-				mergeVersion(name, hash, dataOb.data)
-			} else {
-				saveExe(name, hash, dataOb.data)
-			}
-		}
-
-		function mergeVersion(name, hash, data) {
-			// 合并代码
-			var versionOb = getStorageOb(name);
-			var oldVersion = versionOb ? versionOb.str : '';
-			var newVersion = JsDiff.applyPatch(oldVersion, data)
-			saveExe(name, hash, newVersion)
-		}
-
-		// 新代码存到本地并执行相关代码
-		function saveExe(name, hash, data) {
-			modifyStatus(name, data)
-			// 存新版本
-			var obj = {
-				hash,
-				str: data
-			}
-			window.localStorage.setItem(name, JSON.stringify(obj))
-			window.localStorage.setItem('VERSION', VERSION)
-			// 判断文件类型
-			var type = fileNameToType(name);
-			if (type === 'css') {
-				// 执行css
-				loadCss(data)
-			} else if (type === 'js') {
-				//执行js
-				judgeExe(name)
-				// console.log(data, 'data')
-				// eval(data)
-			}
-		}
-		// 判断是否能执行js
-		
-		function judgeExe (name) {
-			var index;
-			for (var i = 0; i < jsList.length; i++) {
-				if (jsList[i].name === name) {
-					index = i;
-					break;
-				}
-			}
-			// 遍历当前js文件之前的文件，如果之前的js文件有没有成功返回的，就不能执行当前文件
-			var canExe = true;
-			for (var j = 0; j <= index; j++) {
-				if (!jsList[j].isDownload) {
-					canExe = false;
-					break;
-				}
-			}
-			// 如果有可以执行
-			if (canExe) {
-				console.log(index, 'exe index')
-				exeEval(jsList[index].src)
-				// window.eval(jsList[index].src);
-				for (var k = index + 1; k < jsList.length; k++) {
-					if (jsList[k].isDownload) {
-						console.log(k, 'exe for key')
-						exeEval(jsList[k].src)
-						// window.eval(jsList[k].src)
+			// 匹配版本号
+			function isMatchStorage(name, hash) {
+				var store = getStorageOb(name);
+				if (store) {
+					if (store.hash === hash) {
+						return {status: 'cache', hash}
 					} else {
+						return {status: 'merge', hash: store.hash}
+					}
+				}
+				return {status: 'no-cache', hash: null}
+			}
+			// 初始化
+			function init() {
+				// 遍历css资源
+				mapResourceList(config.cssList);
+				// 遍历js资源
+				mapResourceList(config.jsList);
+			}
+			// 遍历css和js数组，来加载或请求相应文件
+			function mapResourceList(list) {
+				for (var i = 0; i < list.length; i++) {
+					var fileName = list[i].name;
+					var hash = list[i].hash;
+					var version = window.localStorage.getItem('VERSION');
+					var ob = isMatchStorage(fileName, hash);
+					if (config.VERSION) {
+						if (version === config.VERSION) {
+							loadFile(hash, fileName);
+						} else {
+							switch (ob.status) {
+								case 'cache':
+									loadFile(ob.hash, fileName);
+									break;
+								case 'merge':
+									fetchFile(fileName, ob.hash, hash);
+									break;
+								default:
+									fetchFile( fileName, ob.hash, hash)
+							}
+						}
+					} else {
+						// 调用接口拉取文件
+						fetchFile( fileName, null, hash)
+					}
+				}
+			}
+
+			// 加载本地缓存
+			function loadFile(hash, name) {
+				var type = fileNameToType(name);
+				var fileStr = getStorageOb(name);
+				// 文件存在
+				if (fileStr) {
+					modifyStatus(name, fileStr.str)
+					if (type === 'css') {
+						// 执行css
+						loadCss(fileStr.str)
+					} else if (type === 'js') {
+						// 执行本地的js文件，失败的话说明文件被破坏，重新下载(本地相对不安全，网络相对较安全)
+						// 对于执行js字符串，本地读取的执行失败会请求网络，网络请求的执行失败不会处理，一般网络失败再请求只会造成死循环。
+						// 所以只再这里使用try catch，不在eval里使用try catch
+						try {
+							judgeExe(name)
+							// eval(fileStr.str)
+						} catch(err) {
+							// 本地文件执行失败，重新下载时，应该将isDownload状态重置为false
+							resetStatus(name);
+							fetchFile(name, null, hash)
+						}
+						
+					}
+				} else {
+					// 文件不存在
+					fetchFile(name, null, hash)
+				}
+			}
+
+			// 从资源配置数组里匹配当前文件，重置其下载状态
+			function resetStatus(name) {
+				for (var i = 0; i < config.jsList.length; i++) {
+					if (config.jsList[i].name === name) {
+						config.jsList[i].isDownload = false;
 						break;
 					}
 				}
 			}
-			// 清除js字符串内存
-			function removeJsStr() {
-				for (var i = 0; i < jsList.length; i++) {
-					jsList[i].src = null;
-				}
-				for (var i = 0; i < cssList.length; i++) {
-					cssList[i].src = null;
-				}
-			}
-		}
 
-		// 执行eval函数
-		function exeEval(str) {
-			// 兼容ie8，也可以忽略，因为ie8对localStorage兼容性不是很好。
-			if(window.execScript){
-				window.execScript(str);
-			}else {
-				//非IE浏览器
-				window.eval(str);
+			// 加载css文件
+			function loadCss(str) {
+				var style = document.createElement('style');
+				style.rel = "stylesheet"
+				// rel="stylesheet"
+				var head = document.querySelector('head');
+				style.innerHTML = str;
+				head.appendChild(style);
 			}
-		}
+			// 调用接口
+			function fetchFile(name, oldHash, hash) {
+				ajax(name, oldHash, hash, cb);
+			}
+			// 接口回调函数
+			function cb(hash, name, data) {
+				// 正常返回
+				var dataOb = JSON.parse(data)
+				if (dataOb.isMerge) {
+					// 合并代码
+					mergeVersion(name, hash, dataOb.data)
+				} else {
+					saveExe(name, hash, dataOb.data)
+				}
+			}
 
-		// 从资源配置数组里匹配当前文件，改变配置状态
-		function modifyStatus(name, data) {
-			for (var i = 0; i < jsList.length; i++) {
-				if (jsList[i].name === name) {
-					jsList[i].src = data;
-					jsList[i].isDownload = true;
-					break;
-				}
+			function mergeVersion(name, hash, data) {
+				// 合并代码
+				var versionOb = getStorageOb(name);
+				var oldVersion = versionOb ? versionOb.str : '';
+				var newVersion = JsDiff.applyPatch(oldVersion, data)
+				saveExe(name, hash, newVersion)
 			}
-		}
-		// 从资源配置数组里读取文件，改变执行状态
-		function modifyExt(name) {
-			for (var i = 0; i < jsList.length; i++) {
-				if (jsList[i].name === name) {
-					jsList[i].isExe = true;
-					break;
-				}
-			}
-		}
-		// 从localStorage中获取json对象并解析，如果取不到则返回null
-		function getStorageOb(key) {
-			var value = window.localStorage.getItem(key);
-			if (value) {
-				try {
-					var data = JSON.parse(value);
-					return data
-				} catch(err) {
-					return null
-				}
-			}
-			return null
-		}
-		// 根据文件名判断文件类型
-		function fileNameToType(name) {
-			// 这里只有js，css两种类型
-			var reg = /^js.*/ig;
-			if (reg.test(name)) {
-				return 'js'
-			} else {
-				return 'css'
-			}
-		}
 
+			// 新代码存到本地并执行相关代码
+			function saveExe(name, hash, data) {
+				modifyStatus(name, data)
+				// 存新版本
+				var obj = {
+					hash,
+					str: data
+				}
+				window.localStorage.setItem(name, JSON.stringify(obj))
+				window.localStorage.setItem('VERSION', config.VERSION)
+				// 判断文件类型
+				var type = fileNameToType(name);
+				if (type === 'css') {
+					// 执行css
+					loadCss(data)
+				} else if (type === 'js') {
+					//执行js
+					judgeExe(name)
+				}
+			}
+			// 判断是否能执行js
+			
+			function judgeExe (name) {
+				var index;
+				for (var i = 0; i < config.jsList.length; i++) {
+					if (config.jsList[i].name === name) {
+						index = i;
+						break;
+					}
+				}
+				// 遍历当前js文件之前的文件，如果之前的js文件有没有成功返回的，就不能执行当前文件
+				var canExe = true;
+				for (var j = 0; j <= index; j++) {
+					if (!config.jsList[j].isDownload) {
+						canExe = false;
+						break;
+					}
+				}
+				// 如果有可以执行
+				if (canExe) {
+					console.log(index, 'exe index')
+					exeEval(config.jsList[index].src)
+					for (var k = index + 1; k < config.jsList.length; k++) {
+						if (config.jsList[k].isDownload) {
+							console.log(k, 'exe for key')
+							exeEval(config.jsList[k].src)
+						} else {
+							break;
+						}
+					}
+				}
+				// 清除js字符串内存
+				function removeJsStr() {
+					for (var i = 0; i < config.jsList.length; i++) {
+						config.jsList[i].src = null;
+					}
+					for (var i = 0; i < config.cssList.length; i++) {
+						config.cssList[i].src = null;
+					}
+				}
+			}
+
+			// 执行eval函数
+			function exeEval(str) {
+				// 兼容ie8，也可以忽略，因为ie8对localStorage兼容性不是很好。
+				if(window.execScript){
+					window.execScript(str);
+				}else {
+					//非IE浏览器
+					window.eval(str);
+				}
+			}
+
+			// 从资源配置数组里匹配当前文件，改变配置状态
+			function modifyStatus(name, data) {
+				for (var i = 0; i < config.jsList.length; i++) {
+					if (config.jsList[i].name === name) {
+						config.jsList[i].src = data;
+						config.jsList[i].isDownload = true;
+						break;
+					}
+				}
+			}
+			// 从localStorage中获取json对象并解析，如果取不到则返回null
+			function getStorageOb(key) {
+				var value = window.localStorage.getItem(key);
+				if (value) {
+					try {
+						var data = JSON.parse(value);
+						return data
+					} catch(err) {
+						return null
+					}
+				}
+				return null
+			}
+			// 根据文件名判断文件类型
+			function fileNameToType(name) {
+				// 这里只有js，css两种类型
+				var reg = /^js.*/ig;
+				if (reg.test(name)) {
+					return 'js'
+				} else {
+					return 'css'
+				}
+			}
+		})();
 	</script>
 </body>
 </html>

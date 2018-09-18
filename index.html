@@ -265,6 +265,23 @@
 					config.jsList[i].src = null;
 				}
 				// 清除本地多余文件，目前只考虑一个域名只有一个项目的情况。
+				for (var j = 0, len = localStorage.length; j < len; j ++) {
+					var key = localStorage.key(j);
+					var flag = false
+					for(var k = 0; k < config.jsList.length; k++) {
+						if (key === config.jsList[k].name) {
+							flag = true;
+						}
+					}
+					for(var k = 0; k < config.cssList.length; k++) {
+						if (key === config.cssList[k].name) {
+							flag = true;
+						}
+					}
+					if (!flag) {
+						window.localStorage.removeItem(key);
+					}
+				}
 			}
 
 			// 执行eval函数

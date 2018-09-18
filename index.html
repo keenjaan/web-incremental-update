@@ -205,6 +205,7 @@
 
 			// 新代码存到本地并执行相关代码
 			function saveExe(name, hash, data) {
+				debugger;
 				// 存新版本
 				var obj = {
 					hash,
@@ -268,14 +269,20 @@
 				for (var j = 0, len = localStorage.length; j < len; j ++) {
 					var key = localStorage.key(j);
 					var flag = false
+					if (key === 'VERSION') {
+						flag = true;
+						break;
+					}
 					for(var k = 0; k < config.jsList.length; k++) {
 						if (key === config.jsList[k].name) {
 							flag = true;
+							break;
 						}
 					}
 					for(var k = 0; k < config.cssList.length; k++) {
 						if (key === config.cssList[k].name) {
 							flag = true;
+							break;
 						}
 					}
 					if (!flag) {

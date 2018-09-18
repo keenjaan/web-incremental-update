@@ -136,11 +136,11 @@
 				var fileStr = getStorageOb(name);
 				// 文件存在
 				if (fileStr) {
-					modifyStatus(name, fileStr.str)
 					if (type === 'css') {
 						// 执行css
 						loadCss(fileStr.str)
 					} else if (type === 'js') {
+						modifyStatus(name, fileStr.str)
 						// 执行本地的js文件，失败的话说明文件被破坏，重新下载(本地相对不安全，网络相对较安全)
 						// 对于执行js字符串，本地读取的执行失败会请求网络，网络请求的执行失败不会处理，一般网络失败再请求只会造成死循环。
 						// 所以只再这里使用try catch，不在eval里使用try catch
@@ -205,7 +205,6 @@
 
 			// 新代码存到本地并执行相关代码
 			function saveExe(name, hash, data) {
-				modifyStatus(name, data)
 				// 存新版本
 				var obj = {
 					hash,
@@ -219,6 +218,7 @@
 					// 执行css
 					loadCss(data)
 				} else if (type === 'js') {
+					modifyStatus(name, data)
 					//执行js
 					judgeExe(name)
 				}
@@ -249,20 +249,22 @@
 						if (config.jsList[k].isDownload) {
 							console.log(k, 'exe for key')
 							exeEval(config.jsList[k].src)
+							if (k === config.jsList.length - 1) {
+								removeJsStr();
+							}
 						} else {
 							break;
 						}
 					}
 				}
-				// 清除js字符串内存
-				function removeJsStr() {
-					for (var i = 0; i < config.jsList.length; i++) {
-						config.jsList[i].src = null;
-					}
-					for (var i = 0; i < config.cssList.length; i++) {
-						config.cssList[i].src = null;
-					}
+			}
+
+			// 清除js字符串内存
+			function removeJsStr() {
+				for (var i = 0; i < config.jsList.length; i++) {
+					config.jsList[i].src = null;
 				}
+				// 清除本地多余文件，目前只考虑一个域名只有一个项目的情况。
 			}
 
 			// 执行eval函数
